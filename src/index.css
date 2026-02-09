@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brandip-heading: #2c3e50;
+  --color-brandip-body: #6c7a89;
+  --color-brandip-accent: #3898ec;
+  --color-brandip-border: #d3dce6;
+  --color-brandip-gradient-top: #d4fafd;
+  --color-brandip-gradient-mid: #e7fbfd;
+  --font-brandip: "Poppins", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-brandip);
+  line-height: 1.4;
+  /* Gradient: #d4fafd (top) → #e7fbfd (middle) → white. Smooth blend in initial view. */
+  background: linear-gradient(180deg, var(--color-brandip-gradient-top) 0%, var(--color-brandip-gradient-mid) 20vh, #ffffff 35vh);
+  background-color: #ffffff;
+  min-height: 100vh;
+  color: var(--color-brandip-heading);
+}
+
+input[type="range"] {
+  accent-color: #3898ec;
+}
+
+/* Dual-handle range: transparent track, visible thumb only */
+.range-thumb-only {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.range-thumb-only::-webkit-slider-runnable-track {
+  height: 8px;
+  background: transparent;
+}
+.range-thumb-only::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3898ec;
+  cursor: grab;
+  margin-top: -4px;
+}
+.range-thumb-only::-moz-range-track {
+  background: transparent;
+  height: 8px;
+}
+.range-thumb-only::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3898ec;
+  cursor: grab;
+  border: 0;
+}

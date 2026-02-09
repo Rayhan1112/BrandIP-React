@@ -1,0 +1,80 @@
+export const userdata = [
+    {
+        id: 1,
+        name: 'Rehan Khan',
+        email: 'rehan.khan@example.com',
+        password: 'password',
+    },
+    {
+        id: 2,
+        name: 'Aman Kumar',
+        email: 'aman.kumar@example.com',
+        password: 'password',
+    },
+    {
+        id: 3,
+        name: 'Rajesh Kumar',
+        email: 'rajesh.kumar@example.com',
+        password: 'password',
+    },
+    {
+        id: 4,
+        name: 'User Shailesh',
+        email: 'user.shailesh@example.com',
+        password: 'password',
+    },
+    {
+        id: 5,
+        name: 'User Ravi',
+        email: 'user.ravi@example.com',
+        password: 'password',
+    },
+    {
+        id: 6,
+        name: 'User Sanjay',
+        email: 'user.sanjay@example.com',
+        password: 'password',
+    },
+    {
+        id: 7,
+        name: 'User Ajay',
+        email: 'user.ajay@example.com',
+        password: 'password',
+    },
+    {
+        id: 8,
+        name: 'User Rahul',
+        email: 'user.rahul@example.com',
+        password: 'password',
+    },
+    {
+        id: 9,
+        name: 'User Rajesh',
+        email: 'user.rajesh@example.com',
+        password: 'password',
+    },
+    {
+        id: 10,
+        name: 'User Mohit',
+        email: 'user.mohit@example.com',
+        password: 'password',
+    },
+    {
+        id: 11,
+        name: 'User Amit',
+        email: 'user.amit@example.com',
+        password: 'password',
+    },
+    {
+        id: 12,
+        name: 'User Anil',
+        email: 'user.anil@example.com',
+        password: 'password',
+    },
+    {
+        id: 13,
+        name: 'User Dhananjaya',
+        email: 'user.dhananjaya@example.com',
+        password: 'password',
+    },
+];

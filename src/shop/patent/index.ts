@@ -1,0 +1,1 @@
+export { Patent } from './Patent';

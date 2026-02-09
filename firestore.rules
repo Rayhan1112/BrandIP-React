@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Admin email check
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'admin@gmail.com';
+    }
+
+    // Public read access for domains
+    match /domains/{domain} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      // Allow admin or owner to update
+      allow update: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.userId);
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+
+    // User profile - only owner can read/write
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // product_flat: synced from MySQL via PHP API; public read, admin-only write (for sync)
+    match /product_flat/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Cart: user can only read/write their own items (cartUserId == auth.uid when logged in)
+    // For guest cart (localStorage id), allow create/read/update/delete so unauthenticated users can use cart
+    match /cart/{itemId} {
+      allow create: if request.auth != null && request.resource.data.cartUserId == request.auth.uid
+        || request.auth == null;
+      allow read, update, delete: if request.auth != null && resource.data.cartUserId == request.auth.uid
+        || request.auth == null;
+    }
+
+    // Orders: anyone can create (guest or logged in); offline payment stored with paymentStatus: 'offline'
+    // Logged-in user can read their own orders (customerId == auth.uid); customer can update (e.g. payment proofs); admin can read/update/delete all
+    match /orders/{orderId} {
+      allow create: if true;
+      allow read: if request.auth != null && resource.data.customerId == request.auth.uid
+        || isAdmin();
+      allow update: if request.auth != null && resource.data.customerId == request.auth.uid
+        || isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

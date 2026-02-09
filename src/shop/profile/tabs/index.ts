@@ -1,0 +1,8 @@
+export { ProfileTab } from './ProfileTab';
+export { AddressTab } from './AddressTab';
+export { CartTab } from './CartTab';
+export { MyDomainsTab } from './MyDomainsTab';
+export { OffersTab } from './OffersTab';
+export { TerminationsTab } from './TerminationsTab';
+export { PaymentTab } from './PaymentTab';
+export { OrdersTab } from './OrdersTab';
