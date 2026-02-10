@@ -5,15 +5,22 @@ import { syncAllProductsFromMysqlToFirestore, type ProductSyncResult } from '../
 
 interface Domain {
   id: string;
+  productId?: string;
   domainName?: string;
   name?: string;
+  sku?: string;
   price?: number;
+  specialPrice?: number;
   category?: string;
+  categoryId?: string;
   status?: string;
   sellerId?: string;
   createdAt?: Date;
   domainLength?: number;
   extension?: string;
+  image?: string;
+  description?: string;
+  shortDescription?: string;
   [key: string]: unknown;
 }
 
@@ -25,6 +32,8 @@ export function AdminProducts() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<ProductSyncResult | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const handleSyncFromMysql = async () => {
     setSyncing(true);
@@ -57,20 +66,30 @@ export function AdminProducts() {
         return;
       }
 
-      console.log('Fetching products from Firestore...');
       
-      // Fetch all domains without ordering to avoid index issues
-      const q = query(collection(db, 'domains'));
+      // Fetch all products from product_flat collection
+      const q = query(collection(db, 'product_flat'));
       const querySnapshot = await getDocs(q);
 
-      console.log(`Found ${querySnapshot.docs.length} documents`);
 
       const productsData: Domain[] = querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        console.log('Document data:', doc.id, data);
         return {
           id: doc.id,
-          ...data,
+          productId: data.product_id || data.productId || doc.id,
+          domainName: data.domain_name || data.domainName || null,
+          name: data.name || null,
+          sku: data.sku || null,
+          price: data.price ?? data.price ?? 0,
+          specialPrice: data.special_price ?? data.specialPrice ?? null,
+          category: data.category || null,
+          categoryId: data.category_id || data.categoryId || null,
+          status: data.status ?? data.status ?? 'Pending',
+          sellerId: data.seller_id || data.sellerId || null,
+          extension: data.extension || null,
+          image: data.image || null,
+          description: data.description || null,
+          shortDescription: data.short_description || data.shortDescription || null,
           createdAt: data.createdAt?.toDate() || data.createdAt || new Date(),
         };
       });
@@ -92,6 +111,17 @@ export function AdminProducts() {
     return matchesSearch && matchesStatus;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
   const formatDate = (date: Date | undefined) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
       return 'N/A';
@@ -110,14 +140,35 @@ export function AdminProducts() {
     }).format(price || 0);
   };
 
-  const getStatusBadge = (status: string | undefined) => {
+  const getStatusBadge = (status: string | boolean | undefined) => {
+    // Handle true/false values from product_flat
+    if (status === true) {
+      return 'bg-green-100 text-green-800';
+    }
+    if (status === false) {
+      return 'bg-red-100 text-red-800';
+    }
+    const statusStr = String(status || '');
     const colors: Record<string, string> = {
       Pending: 'bg-yellow-100 text-yellow-800',
       Approved: 'bg-green-100 text-green-800',
       Rejected: 'bg-red-100 text-red-800',
       Sold: 'bg-blue-100 text-blue-800',
+      Active: 'bg-green-100 text-green-800',
+      Inactive: 'bg-gray-100 text-gray-800',
     };
-    return colors[status || ''] || 'bg-gray-100 text-gray-800';
+    return colors[statusStr] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusText = (status: string | boolean | undefined) => {
+    // Handle true/false values from product_flat
+    if (status === true) {
+      return 'Active';
+    }
+    if (status === false) {
+      return 'Inactive';
+    }
+    return String(status) || 'Pending';
   };
 
   const getDomainName = (product: Domain) => {
@@ -230,19 +281,19 @@ export function AdminProducts() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product Name
+                    Product
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    SKU
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Price
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Special Price
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date Added
+                    Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -250,27 +301,30 @@ export function AdminProducts() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{getDomainName(product)}</div>
                       {product.extension && (
                         <div className="text-xs text-gray-500">.{product.extension}</div>
                       )}
+                      {product.image && (
+                        <img src={product.image} alt="" className="w-10 h-10 mt-1 rounded object-cover" />
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.category || 'Uncategorized'}
+                      {product.sku || '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {formatPrice(product.price)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                      {product.specialPrice ? formatPrice(product.specialPrice) : '—'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(product.status)}`}>
-                        {product.status || 'Pending'}
+                        {getStatusText(product.status)}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(product.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button className="text-[#3898ec] hover:text-[#2d7bc4] mr-3">
@@ -292,13 +346,24 @@ export function AdminProducts() {
       {filteredProducts.length > 0 && (
         <div className="p-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            Showing {filteredProducts.length} of {products.length} products
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50" disabled>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
               Previous
             </button>
-            <button className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50" disabled>
+            <span className="px-3 py-1 text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
               Next
             </button>
           </div>

@@ -15,10 +15,12 @@ import {
   doc,
   updateDoc,
   type DocumentData,
+  FieldValue,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { getImageBaseUrl } from './phpApiService';
 import { fetchProductById, type ProductWithImageUrl } from './phpApiService';
+import { getNextOrderNumber, getNextInvoiceNumber } from './counterService';
 
 const GUEST_CART_KEY = 'brandip_guest_cart_id';
 
@@ -333,17 +335,18 @@ export interface OrderItemForFirestore {
 }
 
 function generateOrderNumber(): string {
-  const t = Date.now().toString(36).toUpperCase();
-  const r = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `ORD-${t}-${r}`;
+  // This now uses the counter service which starts from 1001
+  // Kept for backward compatibility, but createOrderInFirestore now uses getNextOrderNumber
+  return 'ORD-' + Date.now().toString(36).toUpperCase();
 }
 
 const ORDERS_COLLECTION = 'orders';
 
 /**
  * Create an order in Firestore (and support offline payment e.g. Money Transfer).
- * Stores order with billing address, payment method, items, totals, and paymentStatus: 'offline'.
- * Returns order number and Firestore doc id.
+ * Creates a complete ecosystem: Order -> Offline Payment -> Transaction
+ * All three are linked together with references.
+ * Returns order number, order id, payment id, and transaction id.
  */
 export async function createOrderInFirestore(
   billingAddress: BillingAddressForOrder,
@@ -352,11 +355,17 @@ export async function createOrderInFirestore(
   subtotal: number,
   processingFee: number,
   total: number
-): Promise<{ orderNumber: string; orderId: string } | null> {
+): Promise<{ orderNumber: string; orderId: string; paymentId: string; transactionId: string } | null> {
   if (!db) return null;
   try {
     const customerId = getCartUserId();
-    const orderNumber = generateOrderNumber();
+    
+    // Get next sequential order number starting from 1001
+    const orderNumber = await getNextOrderNumber();
+    
+    const now = new Date();
+    
+    // Create order document
     const orderRef = collection(db, ORDERS_COLLECTION);
     const orderData = {
       orderNumber,
@@ -387,10 +396,68 @@ export async function createOrderInFirestore(
       total,
       status: 'pending',
       paymentVerificationStatus: 'pending',
-      createdAt: new Date(),
+      createdAt: now,
+      // Ecosystem references
+      paymentId: '', // Will be updated after payment creation
+      transactionId: '', // Will be updated after transaction creation
     };
     const docRef = await addDoc(orderRef, orderData);
-    return { orderNumber, orderId: docRef.id };
+    const orderId = docRef.id;
+    
+    // Create offline payment record (linked to order)
+    const paymentRef = collection(db, 'offlinePayments');
+    const paymentData = {
+      orderId,
+      orderNumber,
+      customerId,
+      amount: total,
+      currency: 'USD',
+      paymentMethod: 'Money Transfer',
+      paymentType: 'offline',
+      status: 'pending',
+      paymentProofRequired: true,
+      paymentProofUploaded: false,
+      createdAt: now,
+      updatedAt: now,
+      // Transaction reference
+      transactionId: '',
+    };
+    const paymentDocRef = await addDoc(paymentRef, paymentData);
+    const paymentId = paymentDocRef.id;
+    
+    // Create transaction record (linked to order and payment)
+    const transactionRef = collection(db, 'transactions');
+    const transactionData = {
+      orderId,
+      orderNumber,
+      paymentId,
+      customerId,
+      amount: total,
+      currency: 'USD',
+      type: 'payment',
+      status: 'pending',
+      paymentMethod: 'Money Transfer',
+      description: `Payment for order ${orderNumber}`,
+      processingFee,
+      netAmount: subtotal,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const transactionDocRef = await addDoc(transactionRef, transactionData);
+    const transactionId = transactionDocRef.id;
+    
+    // Update order with payment and transaction references
+    await updateDoc(docRef, {
+      paymentId,
+      transactionId,
+    });
+    
+    // Update payment with transaction reference
+    await updateDoc(paymentDocRef, {
+      transactionId,
+    });
+    
+    return { orderNumber, orderId, paymentId, transactionId };
   } catch (e) {
     console.error('createOrderInFirestore error:', e);
     return null;
@@ -424,6 +491,12 @@ export interface OrderRecord {
   paymentProof1Url?: string;
   paymentProof2Url?: string;
   paymentProofUploadedAt?: Date;
+  // Ecosystem references
+  paymentId?: string;
+  transactionId?: string;
+  // Invoice references
+  invoiceId?: string;
+  invoiceNumber?: string;
 }
 
 export async function getOrdersByCustomerId(customerId: string): Promise<OrderRecord[]> {
@@ -457,6 +530,12 @@ export async function getOrdersByCustomerId(customerId: string): Promise<OrderRe
         paymentProof1Url: data.paymentProof1Url ?? undefined,
         paymentProof2Url: data.paymentProof2Url ?? undefined,
         paymentProofUploadedAt: uploadedAt,
+        // Ecosystem references
+        paymentId: data.paymentId ?? undefined,
+        transactionId: data.transactionId ?? undefined,
+        // Invoice references
+        invoiceId: data.invoiceId ?? undefined,
+        invoiceNumber: data.invoiceNumber ?? undefined,
       };
     }).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   } catch (e) {
@@ -517,6 +596,12 @@ function mapOrderDocToRecord(d: { id: string; data: () => Record<string, unknown
     paymentProof1Url: (data.paymentProof1Url as string) ?? undefined,
     paymentProof2Url: (data.paymentProof2Url as string) ?? undefined,
     paymentProofUploadedAt: uploadedAt,
+    // Ecosystem references
+    paymentId: data.paymentId as string | undefined,
+    transactionId: data.transactionId as string | undefined,
+    // Invoice references
+    invoiceId: data.invoiceId as string | undefined,
+    invoiceNumber: data.invoiceNumber as string | undefined,
   };
 }
 
@@ -596,16 +681,249 @@ export async function updateOrderAdminFields(
   if (!db) return false;
   try {
     const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-    const update: Record<string, unknown> = { ...fields };
+    // Build update object, filtering out undefined values
+    const update: Record<string, string | null> = {};
+    if (fields.paymentVerificationStatus !== undefined) {
+      update.paymentVerificationStatus = fields.paymentVerificationStatus;
+    }
+    if (fields.adminNotes !== undefined) {
+      update.adminNotes = fields.adminNotes;
+    }
     if (fields.paymentVerificationStatus === 'pending') {
-      update.reviewedAt = null;
-      update.reviewedBy = null;
+      update.reviewedAt = null as unknown as string;
+      update.reviewedBy = null as unknown as string;
     }
     await updateDoc(orderRef, update);
     return true;
   } catch (e) {
     console.error('updateOrderAdminFields error:', e);
     return false;
+  }
+}
+
+// ============================================
+// Invoice Management
+// ============================================
+
+export interface InvoiceRecord {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerEmail: string;
+  billingAddress: Record<string, unknown>;
+  items: OrderRecord['items'];
+  subtotal: number;
+  processingFee: number;
+  total: number;
+  currency: string;
+  status: 'draft' | 'issued' | 'paid' | 'cancelled';
+  transactionCreated: boolean;
+  issuedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const INVOICES_COLLECTION = 'invoices';
+
+/** Create invoice for an order */
+export async function createInvoiceForOrder(
+  orderId: string,
+  createTransaction: boolean = false
+): Promise<{ invoiceId: string; invoiceNumber: string; transactionId?: string } | null> {
+  if (!db) return null;
+  try {
+    const order = await getOrderById(orderId);
+    if (!order) return null;
+    
+    const invoiceNumber = await getNextInvoiceNumber();
+    const now = new Date();
+    
+    const billing = order.billingAddress as {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zipCode?: string;
+    } | undefined;
+    
+    const customerName = billing 
+      ? `${billing.firstName || ''} ${billing.lastName || ''}`.trim() 
+      : 'Unknown';
+    
+    const invoiceRef = collection(db, INVOICES_COLLECTION);
+    const invoiceData = {
+      orderId,
+      orderNumber: order.orderNumber,
+      invoiceNumber,
+      customerName,
+      customerEmail: billing?.email || '',
+      billingAddress: order.billingAddress,
+      items: order.items,
+      subtotal: order.subtotal,
+      processingFee: order.processingFee,
+      total: order.total,
+      currency: 'USD',
+      status: 'issued',
+      transactionCreated: createTransaction,
+      issuedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    const docRef = await addDoc(invoiceRef, invoiceData);
+    let transactionId: string | undefined;
+    
+    // Create transaction if checkbox is checked
+    if (createTransaction && order.transactionId) {
+      transactionId = order.transactionId;
+      // Update transaction status to completed
+      await updateDoc(doc(db, 'transactions', order.transactionId), {
+        status: 'completed',
+        invoiceId: docRef.id,
+        invoiceNumber,
+        updatedAt: now,
+      });
+      
+      // Update order with invoice reference
+      await updateDoc(doc(db, ORDERS_COLLECTION, orderId), {
+        invoiceId: docRef.id,
+        invoiceNumber,
+        status: 'processing',
+        updatedAt: now,
+      });
+    }
+    
+    return { invoiceId: docRef.id, invoiceNumber, transactionId };
+  } catch (e) {
+    console.error('createInvoiceForOrder error:', e);
+    return null;
+  }
+}
+
+/** Get invoice by ID */
+export async function getInvoiceById(invoiceId: string): Promise<InvoiceRecord | null> {
+  if (!db) return null;
+  try {
+    const invoiceRef = doc(db, INVOICES_COLLECTION, invoiceId);
+    const snap = await getDoc(invoiceRef);
+    if (!snap.exists()) return null;
+    
+    const data = snap.data();
+    return {
+      id: snap.id,
+      orderId: data.orderId || '',
+      orderNumber: data.orderNumber || '',
+      invoiceNumber: data.invoiceNumber || '',
+      customerName: data.customerName || '',
+      customerEmail: data.customerEmail || '',
+      billingAddress: data.billingAddress || {},
+      items: data.items || [],
+      subtotal: Number(data.subtotal || 0),
+      processingFee: Number(data.processingFee || 0),
+      total: Number(data.total || 0),
+      currency: data.currency || 'USD',
+      status: (data.status as InvoiceRecord['status']) || 'draft',
+      transactionCreated: data.transactionCreated === true,
+      issuedAt: data.issuedAt?.toDate?.() || new Date(),
+      createdAt: data.createdAt?.toDate?.() || new Date(),
+      updatedAt: data.updatedAt?.toDate?.() || new Date(),
+    };
+  } catch (e) {
+    console.error('getInvoiceById error:', e);
+    return null;
+  }
+}
+
+/** Get invoices by order ID */
+export async function getInvoicesByOrderId(orderId: string): Promise<InvoiceRecord[]> {
+  if (!db) return [];
+  try {
+    const invoicesRef = collection(db, INVOICES_COLLECTION);
+    const q = query(invoicesRef, where('orderId', '==', orderId));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map((snap) => {
+      const data = snap.data();
+      return {
+        id: snap.id,
+        orderId: data.orderId || '',
+        orderNumber: data.orderNumber || '',
+        invoiceNumber: data.invoiceNumber || '',
+        customerName: data.customerName || '',
+        customerEmail: data.customerEmail || '',
+        billingAddress: data.billingAddress || {},
+        items: data.items || [],
+        subtotal: Number(data.subtotal || 0),
+        processingFee: Number(data.processingFee || 0),
+        total: Number(data.total || 0),
+        currency: data.currency || 'USD',
+        status: (data.status as InvoiceRecord['status']) || 'draft',
+        transactionCreated: data.transactionCreated === true,
+        issuedAt: data.issuedAt?.toDate?.() || new Date(),
+        createdAt: data.createdAt?.toDate?.() || new Date(),
+        updatedAt: data.updatedAt?.toDate?.() || new Date(),
+      };
+    });
+  } catch (e) {
+    console.error('getInvoicesByOrderId error:', e);
+    return [];
+  }
+}
+
+/** Cancel invoice */
+export async function cancelInvoice(invoiceId: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const invoiceRef = doc(db, INVOICES_COLLECTION, invoiceId);
+    await updateDoc(invoiceRef, {
+      status: 'cancelled',
+      updatedAt: new Date(),
+    });
+    return true;
+  } catch (e) {
+    console.error('cancelInvoice error:', e);
+    return false;
+  }
+}
+
+/** Get all invoices for admin */
+export async function getAllInvoicesForAdmin(): Promise<InvoiceRecord[]> {
+  if (!db) return [];
+  try {
+    const invoicesRef = collection(db, INVOICES_COLLECTION);
+    const snapshot = await getDocs(invoicesRef);
+    return snapshot.docs
+      .map((snap) => {
+        const data = snap.data();
+        return {
+          id: snap.id,
+          orderId: data.orderId || '',
+          orderNumber: data.orderNumber || '',
+          invoiceNumber: data.invoiceNumber || '',
+          customerName: data.customerName || '',
+          customerEmail: data.customerEmail || '',
+          billingAddress: data.billingAddress || {},
+          items: data.items || [],
+          subtotal: Number(data.subtotal || 0),
+          processingFee: Number(data.processingFee || 0),
+          total: Number(data.total || 0),
+          currency: data.currency || 'USD',
+          status: (data.status as InvoiceRecord['status']) || 'draft',
+          transactionCreated: data.transactionCreated === true,
+          issuedAt: data.issuedAt?.toDate?.() || new Date(),
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(),
+        };
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (e) {
+    console.error('getAllInvoicesForAdmin error:', e);
+    return [];
   }
 }
 

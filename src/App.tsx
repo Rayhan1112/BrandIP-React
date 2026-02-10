@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { ShopLayout, Homepage, BrandingOrder, BrandingOrderStepView, Patent, Startup, ProfileLayout, SubmitDomain, DomainDetails, Signup, Signin, Checkout } from './shop'
 import {
   AdminAuthProvider,
@@ -18,11 +18,12 @@ import {
   TerminationsTab,
   PaymentTab,
   OrdersTab,
+  InvoiceView,
 } from './shop/profile/tabs'
 import { DomainRequests, PaymentVerifications } from './admin/components'
 import { PhpProducts } from './components/PhpProducts'
 import { AdminProducts, AdminAttributes, AdminCategories, AdminAttributeFamilies } from './admin/catalog'
-import { OrdersList, OrderDetail } from './admin/sales'
+import { OrdersList, OrderDetail, AdminTransactionsList } from './admin/sales'
 
 function AdminProtected({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAdminAuth()
@@ -140,6 +141,16 @@ function App() {
               <Route path=":orderId" element={<OrderDetail />} />
             </Route>
             <Route
+              path="sales/transactions"
+              element={
+                <AdminProtected>
+                  <AdminLayout />
+                </AdminProtected>
+              }
+            >
+              <Route index element={<AdminTransactionsList />} />
+            </Route>
+            <Route
               path=":other"
               element={
                 <AdminProtected>
@@ -169,6 +180,7 @@ function App() {
               <Route path="address" element={<AddressTab />} />
               <Route path="cart" element={<CartTab />} />
               <Route path="orders" element={<OrdersTab />} />
+              <Route path="invoices/:orderId" element={<InvoiceView />} />
               <Route path="my-domains" element={<MyDomainsTab />} />
               <Route path="offers" element={<OffersTab />} />
               <Route path="terminations" element={<TerminationsTab />} />

@@ -1,28 +1,36 @@
 import { useState, useEffect } from 'react';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import type { Order } from '../../services/cartService';
+import type { OrderRecord } from '../../services/cartService';
 import type { Domain } from '../../services/domainService';
 
 interface OverviewStats {
   totalSales: number;
   totalOrders: number;
+  approvedOrders: number;
+  pendingOrders: number;
   totalDomains: number;
   totalCustomers: number;
   activeDomains: number;
   pendingDomains: number;
   soldDomains: number;
+  totalInvoices: number;
+  totalTransactions: number;
 }
 
 export function OverviewDetails() {
   const [stats, setStats] = useState<OverviewStats>({
     totalSales: 0,
     totalOrders: 0,
+    approvedOrders: 0,
+    pendingOrders: 0,
     totalDomains: 0,
     totalCustomers: 0,
     activeDomains: 0,
     pendingDomains: 0,
     soldDomains: 0,
+    totalInvoices: 0,
+    totalTransactions: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -30,11 +38,13 @@ export function OverviewDetails() {
     // Real-time listener for Orders
     const ordersQuery = query(collection(db!, 'orders'));
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OrderRecord[];
       
       setStats(prev => ({
         ...prev,
         totalOrders: orders.length,
+        approvedOrders: orders.filter(o => o.paymentVerificationStatus === 'approved').length,
+        pendingOrders: orders.filter(o => o.paymentVerificationStatus !== 'approved').length,
         totalSales: orders.reduce((sum, o) => sum + (o.total || 0), 0),
       }));
     });
@@ -62,12 +72,32 @@ export function OverviewDetails() {
       }));
     });
 
+    // Real-time listener for Invoices
+    const invoicesQuery = query(collection(db!, 'invoices'));
+    const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+      setStats(prev => ({
+        ...prev,
+        totalInvoices: snapshot.docs.length,
+      }));
+    });
+
+    // Real-time listener for Transactions
+    const transactionsQuery = query(collection(db!, 'transactions'));
+    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      setStats(prev => ({
+        ...prev,
+        totalTransactions: snapshot.docs.length,
+      }));
+    });
+
     setLoading(false);
 
     return () => {
       unsubscribeOrders();
       unsubscribeDomains();
       unsubscribeUsers();
+      unsubscribeInvoices();
+      unsubscribeTransactions();
     };
   }, []);
 
@@ -117,21 +147,54 @@ export function OverviewDetails() {
           </div>
         </div>
 
-        {/* Total Orders */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+        {/* Approved Orders */}
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 border border-emerald-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-200 rounded-lg">
-              <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <div className="p-2 bg-emerald-200 rounded-lg">
+              <svg className="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm text-blue-700 font-medium">Total Orders</p>
-              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.totalOrders)}</p>
+              <p className="text-sm text-emerald-700 font-medium">Approved Orders</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.approvedOrders)}</p>
             </div>
           </div>
         </div>
 
+        {/* Pending Orders */}
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-200 rounded-lg">
+              <svg className="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-amber-700 font-medium">Pending Orders</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.pendingOrders)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Invoices */}
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-200 rounded-lg">
+              <svg className="w-5 h-5 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-indigo-700 font-medium">Total Invoices</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.totalInvoices)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Second Row - Additional Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {/* Total Domains */}
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
           <div className="flex items-center gap-3">
@@ -147,6 +210,21 @@ export function OverviewDetails() {
           </div>
         </div>
 
+        {/* Total Transactions */}
+        <div className="bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg p-4 border border-rose-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-200 rounded-lg">
+              <svg className="w-5 h-5 text-rose-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-rose-700 font-medium">Total Transactions</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.totalTransactions)}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Total Customers */}
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
           <div className="flex items-center gap-3">
@@ -158,6 +236,21 @@ export function OverviewDetails() {
             <div>
               <p className="text-sm text-orange-700 font-medium">Total Customers</p>
               <p className="text-xl font-bold text-gray-900">{formatNumber(stats.totalCustomers)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* All Orders */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-200 rounded-lg">
+              <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-blue-700 font-medium">All Orders</p>
+              <p className="text-xl font-bold text-gray-900">{formatNumber(stats.totalOrders)}</p>
             </div>
           </div>
         </div>

@@ -44,7 +44,7 @@ export function Filters() {
   return (
     <section className="w-full pb-6 pt-0">
       {/* Filter box: no shadow, no outer border */}
-      <div className="bg-white rounded-lg p-4 sm:p-5 lg:p-6">
+      <div className="rounded-lg p-4 sm:p-5 lg:p-6">
         {/* Top row: CATEGORIES, EXTENSIONS, LENGTH, PRICE RANGE – centered */}
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 items-end">
           <div className="flex flex-wrap justify-center gap-3">

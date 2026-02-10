@@ -243,7 +243,7 @@ export function Homepage() {
       {/* Filters Section */}
       <section className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-0">
         {/* Filter box: no shadow, no outer border */}
-        <div className="bg-white rounded-lg p-4 sm:p-5 lg:p-6">
+        <div className=" rounded-lg p-4 sm:p-5 lg:p-6">
           {/* Top row: CATEGORIES, EXTENSIONS, LENGTH, PRICE RANGE – centered */}
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 items-end">
             <div className="flex flex-wrap justify-center gap-3">
@@ -254,7 +254,7 @@ export function Homepage() {
                   onClick={() => { setCategoriesOpen(!categoriesOpen); setExtensionsOpen(false); setLengthOpen(false); }}
                   className="w-full min-h-[48px] flex items-center justify-between gap-2 px-4 py-3 bg-white rounded-xl text-base text-[#6c7a89] hover:bg-gray-50 shadow-[0_4px_6px_rgba(0,0,0,0.2)]"
                 >
-                  <span className="truncate">CATEGORIES: {selectedCategory}</span>
+                  <span className="truncate">{selectedCategory}</span>
                   {chevron}
                 </button>
                 {categoriesOpen && (

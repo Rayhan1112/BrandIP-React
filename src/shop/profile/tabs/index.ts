@@ -6,3 +6,4 @@ export { OffersTab } from './OffersTab';
 export { TerminationsTab } from './TerminationsTab';
 export { PaymentTab } from './PaymentTab';
 export { OrdersTab } from './OrdersTab';
+export { InvoiceView } from './InvoiceView';
