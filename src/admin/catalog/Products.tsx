@@ -122,17 +122,6 @@ export function AdminProducts() {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
-  const formatDate = (date: Date | undefined) => {
-    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-      return 'N/A';
-    }
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const formatPrice = (price: number | undefined) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',

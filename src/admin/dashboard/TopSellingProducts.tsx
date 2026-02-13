@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import type { Order, OrderItem } from '../../services/cartService';
+import type { OrderRecord, OrderItem } from '../../services/cartService';
 
 interface TopSellingDomain {
   domainId: string;
@@ -25,7 +25,7 @@ export function TopSellingProducts() {
         );
         
         const ordersSnapshot = await getDocs(ordersQuery);
-        const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+        const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OrderRecord[];
         
         // Aggregate sales by domain
         const domainSales: Record<string, { domainName: string; logoImage: string; totalSales: number; quantity: number }> = {};

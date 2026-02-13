@@ -5,12 +5,6 @@
 
 const DEFAULT_IMAGE_BASE_URL = 'https://brandip-domains.s3.us-east-2.amazonaws.com';
 
-const getBaseUrl = (): string => {
-  const url = import.meta.env.VITE_PHP_API_BASE_URL;
-  if (url) return url.replace(/\/$/, '');
-  return '';
-};
-
 /** Image base URL for product images (env: VITE_IMAGE_BASE_URL or VITE_CLOUDFRONT_URL, else default S3). */
 export function getImageBaseUrl(): string {
   const url =
@@ -106,21 +100,6 @@ export interface ProductWithImageUrl extends ProductFlat {
   image_url: string;
   /** Full URLs for gallery (from API images[]). Empty if not from details endpoint. */
   image_urls?: string[];
-}
-
-/** Laravel often returns { data: T } or { data: { data: T[] } } */
-function unwrapData<T>(json: unknown): T[] {
-  if (Array.isArray(json)) return json;
-  if (json && typeof json === 'object' && 'data' in json) {
-    const data = (json as { data: unknown }).data;
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === 'object' && 'data' in (data as object)) {
-      const inner = (data as { data: unknown }).data;
-      return Array.isArray(inner) ? inner : [];
-    }
-    return [];
-  }
-  return [];
 }
 
 /** Map API products to include derived image_url for UI. */

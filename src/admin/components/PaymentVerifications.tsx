@@ -304,7 +304,6 @@ export function PaymentVerifications() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {orders.map((order, index) => {
-                  const isProcessing = processingId === order.id;
                   const status = order.paymentVerificationStatus ?? 'pending';
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">

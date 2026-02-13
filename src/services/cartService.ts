@@ -15,7 +15,6 @@ import {
   doc,
   updateDoc,
   type DocumentData,
-  FieldValue,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { getImageBaseUrl } from './phpApiService';
@@ -334,12 +333,6 @@ export interface OrderItemForFirestore {
   quantity: number;
 }
 
-function generateOrderNumber(): string {
-  // This now uses the counter service which starts from 1001
-  // Kept for backward compatibility, but createOrderInFirestore now uses getNextOrderNumber
-  return 'ORD-' + Date.now().toString(36).toUpperCase();
-}
-
 const ORDERS_COLLECTION = 'orders';
 
 /**
@@ -498,6 +491,12 @@ export interface OrderRecord {
   invoiceId?: string;
   invoiceNumber?: string;
 }
+
+/** Alias for admin dashboard components that expect "Order". */
+export type Order = OrderRecord;
+
+/** Single order line item (for admin dashboard). */
+export type OrderItem = OrderRecord['items'][number];
 
 export async function getOrdersByCustomerId(customerId: string): Promise<OrderRecord[]> {
   if (!db) return [];

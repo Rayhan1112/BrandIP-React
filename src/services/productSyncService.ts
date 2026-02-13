@@ -32,7 +32,7 @@ export interface ProductSyncResult {
  * Convert a product to a Firestore-safe document (no undefined; use null for missing).
  */
 function productToFirestoreDoc(product: ProductWithImageUrl | ProductFlat): DocumentData {
-  const p = product as Record<string, unknown>;
+  const p = product as unknown as Record<string, unknown>;
   const out: DocumentData = {};
   const keys = [
     'id', 'sku', 'type', 'product_number', 'name', 'short_description', 'description',
@@ -61,7 +61,6 @@ function productToFirestoreDoc(product: ProductWithImageUrl | ProductFlat): Docu
  */
 export async function syncAllProductsFromMysqlToFirestore(): Promise<ProductSyncResult> {
   const errors: string[] = [];
-  let totalFetched = 0;
   let totalWritten = 0;
 
   if (!isFirebaseReady() || !db) {
@@ -80,7 +79,6 @@ export async function syncAllProductsFromMysqlToFirestore(): Promise<ProductSync
     try {
       const result = await fetchProductsFromPhpPaginated(page, FETCH_PAGE_SIZE);
       allProducts.push(...result.products);
-      totalFetched = result.total;
       lastPage = result.lastPage;
       page++;
     } catch (err) {

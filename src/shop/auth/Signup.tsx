@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link, Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AdminAlert } from '../../admin/components';
 
 export function Signup() {
   const { signUp, isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',

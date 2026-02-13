@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import type { Order } from '../../services/cartService';
+import type { OrderRecord } from '../../services/cartService';
 
 interface TodaysStats {
   todaySales: number;
@@ -31,7 +31,7 @@ export function TodaysDetails() {
     );
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OrderRecord[];
       
       const todaySales = orders.reduce((sum, o) => sum + (o.total || 0), 0);
       const averageOrderValue = orders.length > 0 ? todaySales / orders.length : 0;

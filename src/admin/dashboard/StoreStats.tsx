@@ -21,7 +21,7 @@ export function StoreStats() {
   const [data, setData] = useState<DailyData[]>([]);
   const [totalSales, setTotalSales] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
-  const [totalVisitors, setTotalVisitors] = useState(0);
+  const [totalVisitors, _setTotalVisitors] = useState(0);
 
   useEffect(() => {
     const q = query(collection(db!, 'transactions'));

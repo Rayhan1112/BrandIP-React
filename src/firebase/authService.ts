@@ -10,7 +10,7 @@ import {
   browserLocalPersistence,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, isFirebaseReady, db } from './config';
 
 // Types for auth errors

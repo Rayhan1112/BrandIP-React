@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import type { Order } from '../../services/cartService';
+import type { OrderRecord } from '../../services/cartService';
 
 interface TopCustomer {
   userId: string;
@@ -25,20 +25,22 @@ export function CustomerMostSales() {
         );
         
         const ordersSnapshot = await getDocs(ordersQuery);
-        const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+        const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OrderRecord[];
         
         // Aggregate sales by user
         const userSales: Record<string, { userName: string; userEmail: string; totalSpent: number; orderCount: number }> = {};
         
         orders.forEach(order => {
-          const userId = order.userId;
-          const billingEmail = order.billingAddress?.email || '';
-          
+          const userId = order.customerId;
+          const billing = order.billingAddress as { email?: string; firstName?: string; lastName?: string } | undefined;
+          const billingEmail = (billing?.email as string) || '';
+          const userName = billing?.firstName
+            ? `${billing.firstName} ${billing.lastName || ''}`.trim()
+            : 'Unknown';
+
           if (!userSales[userId]) {
             userSales[userId] = {
-              userName: order.billingAddress?.firstName 
-                ? `${order.billingAddress.firstName} ${order.billingAddress.lastName || ''}`.trim()
-                : 'Unknown',
+              userName,
               userEmail: billingEmail,
               totalSpent: 0,
               orderCount: 0,

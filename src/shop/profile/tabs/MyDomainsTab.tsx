@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { uploadToCloudinary } from '../../../firebase/cloudinary';
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getFirestore, collection, getDocs, query, where, doc, updateDoc, setDoc } from 'firebase/firestore';
 
 // Function to sanitize domain name for use as document ID
 const sanitizeDomainName = (domainName: string): string => {

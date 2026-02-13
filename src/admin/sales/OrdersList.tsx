@@ -6,7 +6,7 @@ import {
   updateOrderPaymentVerification,
   type OrderRecord 
 } from '../../services/cartService';
-import { getOfflinePaymentByOrderId, approveOfflinePayment, rejectOfflinePayment } from '../../services/paymentService';
+import { approveOfflinePayment, rejectOfflinePayment } from '../../services/paymentService';
 
 function formatDate(d: Date | undefined): string {
   if (!d) return '—';
@@ -128,7 +128,6 @@ export function OrdersList() {
       ) : (
         <div className="space-y-3">
           {orders.map((order) => {
-            const b = order.billingAddress as { email?: string } | undefined;
             const hasImages = !!(order.paymentProof1Url || order.paymentProof2Url);
             const isPending = order.paymentVerificationStatus !== 'approved';
 

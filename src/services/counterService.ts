@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, setDoc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, setDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 // Counter document structure
