@@ -167,112 +167,136 @@ export interface ProductsPaginatedResult {
 }
 
 /**
- * Fetch one page of domain products (fast: only 24 items per request).
- * Use for homepage DomainCards with pagination.
+ * Fetch one page of domain products.
+ * Now reads from Firestore product_flat (PHP fetching commented out).
  */
 export async function fetchProductsFromPhpPaginated(
   page: number = 1,
   perPage: number = 24,
   signal?: AbortSignal
 ): Promise<ProductsPaginatedResult> {
-  const base = getBaseUrl();
-  const isDev = import.meta.env.DEV;
-  const endpoint = isDev
-    ? `/api/products?page=${page}&per_page=${perPage}`
-    : `${base}/api/products?page=${page}&per_page=${perPage}`;
-  if (!isDev && !base) {
-    console.warn('VITE_PHP_API_BASE_URL is not set; PHP API calls will fail.');
-    return { products: [], total: 0, perPage: 24, currentPage: 1, lastPage: 1 };
-  }
-  try {
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal,
-    });
-    if (!res.ok) {
-      console.error('PHP API error:', res.status, res.statusText);
-      return { products: [], total: 0, perPage, currentPage: page, lastPage: 1 };
-    }
-    const json = await res.json();
-    const list = unwrapData<ProductFlat>(json);
-    const products = mapProductsWithImageUrl(Array.isArray(list) ? list : []);
-    const meta = (json as { meta?: { total?: number; per_page?: number; current_page?: number; last_page?: number } }).meta;
-    const total = meta?.total ?? products.length;
-    const lastPage = meta?.last_page ?? 1;
-    return {
-      products,
-      total,
-      perPage: meta?.per_page ?? perPage,
-      currentPage: meta?.current_page ?? page,
-      lastPage,
-    };
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') throw err;
-    console.error('Failed to fetch products from PHP:', err);
-    return { products: [], total: 0, perPage, currentPage: page, lastPage: 1 };
-  }
+  const { fetchProductsFromFirestorePaginated } = await import('./firestoreProductService');
+  return fetchProductsFromFirestorePaginated(page, perPage, signal);
 }
 
+// --- PHP fetching code (commented out): fetch from /api/products?page=&per_page= ---
+// export async function fetchProductsFromPhpPaginated(
+//   page: number = 1,
+//   perPage: number = 24,
+//   signal?: AbortSignal
+// ): Promise<ProductsPaginatedResult> {
+//   const base = getBaseUrl();
+//   const isDev = import.meta.env.DEV;
+//   const endpoint = isDev
+//     ? `/api/products?page=${page}&per_page=${perPage}`
+//     : `${base}/api/products?page=${page}&per_page=${perPage}`;
+//   if (!isDev && !base) {
+//     console.warn('VITE_PHP_API_BASE_URL is not set; PHP API calls will fail.');
+//     return { products: [], total: 0, perPage: 24, currentPage: 1, lastPage: 1 };
+//   }
+//   try {
+//     const res = await fetch(endpoint, {
+//       method: 'GET',
+//       headers: { Accept: 'application/json' },
+//       signal,
+//     });
+//     if (!res.ok) {
+//       console.error('PHP API error:', res.status, res.statusText);
+//       return { products: [], total: 0, perPage, currentPage: page, lastPage: 1 };
+//     }
+//     const json = await res.json();
+//     const list = unwrapData<ProductFlat>(json);
+//     const products = mapProductsWithImageUrl(Array.isArray(list) ? list : []);
+//     const meta = (json as { meta?: { total?: number; per_page?: number; current_page?: number; last_page?: number } }).meta;
+//     const total = meta?.total ?? products.length;
+//     const lastPage = meta?.last_page ?? 1;
+//     return {
+//       products,
+//       total,
+//       perPage: meta?.per_page ?? perPage,
+//       currentPage: meta?.current_page ?? page,
+//       lastPage,
+//     };
+//   } catch (err) {
+//     if ((err as Error).name === 'AbortError') throw err;
+//     console.error('Failed to fetch products from PHP:', err);
+//     return { products: [], total: 0, perPage, currentPage: page, lastPage: 1 };
+//   }
+// }
+
 /**
- * Fetch a single product by id for DomainDetails. Use when user clicks a domain card (id = product id).
+ * Fetch a single product by id for DomainDetails.
+ * Now reads from Firestore product_flat (PHP fetching commented out).
  */
 export async function fetchProductById(id: string | number, signal?: AbortSignal): Promise<ProductWithImageUrl | null> {
-  const base = getBaseUrl();
-  const isDev = import.meta.env.DEV;
-  const endpoint = isDev ? `/api/products/${id}` : `${base}/api/products/${id}`;
-  if (!isDev && !base) return null;
-  try {
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal,
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const data = (json as { data?: ProductFlat & { images?: ProductImageFromApi[] } }).data;
-    if (!data || typeof data !== 'object') return null;
-    const product = data as ProductFlat & { images?: ProductImageFromApi[] };
-    const image_url = getProductImageUrl(product);
-    const image_urls = buildGalleryImageUrls(product.images);
-    const galleryUrls = image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
-    return {
-      ...product,
-      image_url: galleryUrls[0] ?? image_url,
-      image_urls: galleryUrls,
-    };
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') throw err;
-    return null;
-  }
+  const { fetchProductByIdFromFirestore } = await import('./firestoreProductService');
+  return fetchProductByIdFromFirestore(id, signal);
 }
 
+// --- PHP fetching code (commented out): fetch from /api/products/:id ---
+// export async function fetchProductById(id: string | number, signal?: AbortSignal): Promise<ProductWithImageUrl | null> {
+//   const base = getBaseUrl();
+//   const isDev = import.meta.env.DEV;
+//   const endpoint = isDev ? `/api/products/${id}` : `${base}/api/products/${id}`;
+//   if (!isDev && !base) return null;
+//   try {
+//     const res = await fetch(endpoint, {
+//       method: 'GET',
+//       headers: { Accept: 'application/json' },
+//       signal,
+//     });
+//     if (!res.ok) return null;
+//     const json = await res.json();
+//     const data = (json as { data?: ProductFlat & { images?: ProductImageFromApi[] } }).data;
+//     if (!data || typeof data !== 'object') return null;
+//     const product = data as ProductFlat & { images?: ProductImageFromApi[] };
+//     const image_url = getProductImageUrl(product);
+//     const image_urls = buildGalleryImageUrls(product.images);
+//     const galleryUrls = image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
+//     return {
+//       ...product,
+//       image_url: galleryUrls[0] ?? image_url,
+//       image_urls: galleryUrls,
+//     };
+//   } catch (err) {
+//     if ((err as Error).name === 'AbortError') throw err;
+//     return null;
+//   }
+// }
+
 /**
- * Fetch all domain products (no pagination). Prefer fetchProductsFromPhpPaginated for homepage.
+ * Fetch all domain products (no pagination).
+ * Now reads from Firestore product_flat (PHP fetching commented out).
  */
 export async function fetchProductsFromPhp(): Promise<ProductWithImageUrl[]> {
-  const base = getBaseUrl();
-  const isDev = import.meta.env.DEV;
-  const endpoint = isDev ? '/api/products' : `${base}/api/products`;
-  if (!isDev && !base) {
-    console.warn('VITE_PHP_API_BASE_URL is not set; PHP API calls will fail.');
-    return [];
-  }
-  try {
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) {
-      console.error('PHP API error:', res.status, res.statusText);
-      return [];
-    }
-    const json = await res.json();
-    const list = unwrapData<ProductFlat>(json);
-    const products = Array.isArray(list) ? list : [];
-    return mapProductsWithImageUrl(products);
-  } catch (err) {
-    console.error('Failed to fetch products from PHP:', err);
-    return [];
-  }
+  const { fetchAllProductsFromFirestore } = await import('./firestoreProductService');
+  return fetchAllProductsFromFirestore();
 }
+
+// --- PHP fetching code (commented out): fetch from /api/products ---
+// export async function fetchProductsFromPhp(): Promise<ProductWithImageUrl[]> {
+//   const base = getBaseUrl();
+//   const isDev = import.meta.env.DEV;
+//   const endpoint = isDev ? '/api/products' : `${base}/api/products`;
+//   if (!isDev && !base) {
+//     console.warn('VITE_PHP_API_BASE_URL is not set; PHP API calls will fail.');
+//     return [];
+//   }
+//   try {
+//     const res = await fetch(endpoint, {
+//       method: 'GET',
+//       headers: { Accept: 'application/json' },
+//     });
+//     if (!res.ok) {
+//       console.error('PHP API error:', res.status, res.statusText);
+//       return [];
+//     }
+//     const json = await res.json();
+//     const list = unwrapData<ProductFlat>(json);
+//     const products = Array.isArray(list) ? list : [];
+//     return mapProductsWithImageUrl(products);
+//   } catch (err) {
+//     console.error('Failed to fetch products from PHP:', err);
+//     return [];
+//   }
+// }

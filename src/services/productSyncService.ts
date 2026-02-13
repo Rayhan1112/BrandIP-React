@@ -1,6 +1,7 @@
 /**
- * Sync products from MySQL (via PHP API) into Firestore collection "product_flat".
- * Fetches all products in pages, then writes them to Firestore using batched writes.
+ * Sync products into Firestore collection "product_flat".
+ * Now uses Firestore as source (PHP/MySQL fetching is commented out in phpApiService).
+ * Fetches all products in pages from Firestore, then writes them back using batched writes.
  */
 
 import {
